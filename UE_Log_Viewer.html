@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <title>Unreal Log Viewer</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #1e1e1e;
+      color: #ccc;
+      padding: 20px;
+    }
+    #drop-zone {
+      border: 2px dashed #555;
+      padding: 20px;
+      text-align: center;
+      color: #999;
+      margin-bottom: 10px;
+    }
+    #drop-zone.dragover {
+      border-color: #888;
+      background: #2a2a2a;
+    }
+    textarea {
+      width: 100%;
+      height: 30px;
+      resize: none;
+      font-size: 12px;
+    }
+    #controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+    }
+    #log-output {
+      white-space: pre-wrap;
+      border: 1px solid #444;
+      padding: 10px;
+      background: #2e2e2e;
+      max-height: 70vh;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+    .line {
+      display: block;
+      padding: 1px 4px;
+    }
+    .error { color: #ff5555; }
+    .warning { color: #f0e68c; }
+    .display { color: #8ef28e; }
+    .verbose { color: #aaaaaa; }
+    .veryverbose { color: #888888; }
+    .log { color: #cccccc; }
+
+    .filter-btn {
+      margin-right: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+    }
+    .filter-btn.active {
+      background: #666;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+    label[for="file-input"] {
+      padding: 5px 10px;
+      background: #444;
+      color: #fff;
+      border: 1px solid #555;
+      cursor: pointer;
+    }
+
+    #options {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    #search-input {
+      padding: 5px;
+      border: 1px solid #555;
+      background: #333;
+      color: #fff;
+    }
+
+    #stats {
+      margin-bottom: 10px;
+    }
+
+    #log-output .line::before {
+      content: attr(data-line-number);
+      display: inline-block;
+      width: 40px;
+      text-align: right;
+      margin-right: 10px;
+      color: #777;
+    }
+
+    /* Dark mode styles */
+    body.dark-mode {
+      background: #000;
+      color: #eee;
+    }
+
+    body.dark-mode .line {
+      color: #ddd;
+    }
+
+    body.dark-mode .error { color: #ff8888; }
+    body.dark-mode .warning { color: #f0e68c; } /* Keep the warning color as is */
+    body.dark-mode .display { color: #aaf8aa; }
+    body.dark-mode .verbose { color: #bbbbbb; }
+    body.dark-mode .veryverbose { color: #999999; }
+    body.dark-mode .log { color: #dddddd; }
+
+    body.dark-mode #drop-zone {
+      border-color: #888;
+      background: #333;
+      color: #ccc;
+    }
+
+    body.dark-mode #drop-zone.dragover {
+      border-color: #bbb;
+      background: #444;
+    }
+
+    body.dark-mode textarea,
+    body.dark-mode #search-input {
+      background: #444;
+      color: #eee;
+      border-color: #888;
+    }
+
+    body.dark-mode .filter-btn {
+      background: #555;
+      color: #ddd;
+      border-color: #777;
+    }
+
+    body.dark-mode .filter-btn.active {
+      background: #888;
+    }
+
+    body.dark-mode label[for="file-input"] {
+      background: #555;
+      color: #ddd;
+      border-color: #777;
+    }
+
+    .highlighted {
+        box-shadow: 0 0 5px 5px rgba(255, 255, 0, 0.5); /* Yellow glow */
+        animation: highlight 1s ease-in-out;
+    }
+
+    @keyframes highlight {
+        0% { box-shadow: 0 0 5px 5px rgba(255, 255, 0, 0.5); }
+        100% { box-shadow: none; }
+    }
+
+    #zoom-percentage {
+      padding: 5px;
+      border: 1px solid #555;
+      background: #333;
+      color: #fff;
+    }
+  </style>
+<link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style><link type="text/css" rel="stylesheet" id="dark-mode-custom-link"><link type="text/css" rel="stylesheet" id="dark-mode-general-link"><style lang="en" type="text/css" id="dark-mode-custom-style"></style><style lang="en" type="text/css" id="dark-mode-native-style"></style><style lang="en" type="text/css" id="dark-mode-native-sheet"></style></head>
+<body class="dark-mode">
+  <div style="text-align: center;">
+    Author: Glax3210
+  </div>
+  <h2>Unreal Engine Log Viewer</h2>
+
+  <div id="options">
+    
+    <button onclick="exportFilteredLogs()">Export Filtered Logs</button>
+    <button onclick="toggleTheme()">
+      <span id="theme-icon">☀️</span>
+    </button>
+    
+    
+    
+    
+  </div>
+
+  <div id="stats">
+    <span id="total-lines">Total Lines: 0</span> |
+    <span id="error-count">Errors: 0</span> |
+    <span id="warning-count">Warnings: 0</span>
+  </div>
+
+  <textarea id="text-input" placeholder="Paste log text..."></textarea><div id="drop-zone">Drag &amp; drop log file here</div>
+  <div id="controls">
+    <button onclick="processLog()">View Log</button>
+    <label for="file-input">Browse File</label>
+    <input type="file" id="file-input" accept=".txt,.log">
+  </div>
+  
+  
+
+  <div>
+    <button class="filter-btn active" onclick="setFilter('all')">All</button>
+    <button class="filter-btn" onclick="setFilter('error')">Error</button>
+    <button class="filter-btn" onclick="setFilter('warning')">Warning</button>
+    <button class="filter-btn" onclick="setFilter('display')">Display</button>
+    <button class="filter-btn" onclick="setFilter('verbose')">Verbose</button>
+    <button class="filter-btn" onclick="setFilter('veryverbose')">VeryVerbose</button>
+  <button class="filter-btn" onclick="goToLastError()">
+      <i class="fas fa-search"></i>
+    </button><select id="zoom-percentage" onchange="setZoom()" style="margin-right: 5px;">
+      <option value="50">50%</option>
+      <option value="75">75%</option>
+      <option value="100" selected="">100%</option>
+      <option value="125">125%</option>
+      <option value="150">150%</option>
+      <option value="175">175%</option>
+      <option value="200">200%</option>
+    </select><button onclick="zoomIn()" style="margin-right: 5px; padding: 5px 10px;">
+      <i class="fas fa-plus"></i>
+    </button><button onclick="zoomOut()" style="margin-right: 5px; padding: 5px 10px;">
+      <i class="fas fa-minus"></i>
+    </button>
+<input type="text" id="search-input" placeholder="Search Logs"></div>
+<div id="log-output"></div>
+  <script>
+    let currentFilter = 'all';
+    let isDarkMode = false;
+    const themeIcon = document.getElementById('theme-icon');
+    const dropZone = document.getElementById('drop-zone');
+    const logOutput = document.getElementById('log-output');
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => processLogText(event.target.result);
+        reader.readAsText(file);
+      }
+    });
+
+    document.getElementById('file-input').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => processLogText(event.target.result);
+        reader.readAsText(file);
+      }
+    });
+
+    document.getElementById('search-input').addEventListener('input', function() {
+      searchLogs(this.value);
+    });
+
+    function toggleTheme() {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('dark-mode');
+      themeIcon.textContent = isDarkMode ? '☀️' : '🌙';
+    }
+
+    function exportFilteredLogs() {
+      let text = '';
+      document.querySelectorAll('#log-output .line:not([style*="display: none"])').forEach(line => {
+        text += line.textContent + '\n';
+      });
+      const blob = new Blob([text], { type: 'text/plain' });
+      const a = document.createElement('a');
+     a.href = URL.createObjectURL(blob);
+     a.download = 'filtered_logs.txt';
+     a.click();
+   }
+
+   function goToLastError() {
+     const errorLines = document.querySelectorAll('#log-output .error');
+     if (errorLines.length > 0) {
+       const lastError = errorLines[errorLines.length - 1];
+       // Remove any existing highlights
+       document.querySelectorAll('.highlighted').forEach(el => el.classList.remove('highlighted'));
+       // Add the highlight class
+       lastError.classList.add('highlighted');
+       lastError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+       // Remove the highlight after the animation
+       lastError.addEventListener('animationend', () => {
+         lastError.classList.remove('highlighted');
+       }, { once: true });
+     }
+   }
+
+    function searchLogs(searchTerm) {
+      const lines = document.querySelectorAll('#log-output .line');
+      lines.forEach(line => {
+        const lineText = line.textContent.toLowerCase();
+        if (lineText.includes(searchTerm.toLowerCase())) {
+          line.style.display = 'block';
+        } else {
+          line.style.display = 'none';
+        }
+      });
+    }
+
+    function setFilter(type) {
+      currentFilter = type;
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.filter-btn[onclick*="${type}"]`).classList.add('active');
+      applyFilter();
+    }
+
+    function applyFilter() {
+      const lines = document.querySelectorAll('#log-output .line');
+      lines.forEach(line => {
+        line.style.display = (currentFilter === 'all' || line.classList.contains(currentFilter)) ? 'block' : 'none';
+      });
+    }
+
+    function processLog() {
+      const text = document.getElementById('text-input').value;
+      if (text.trim() !== '') {
+        processLogText(text);
+      }
+    }
+
+    function processLogText(text) {
+      const output = document.getElementById('log-output');
+      output.innerHTML = '';
+      const lines = text.split('\n');
+      document.getElementById('total-lines').textContent = 'Total Lines: ' + lines.length;
+      let errorCount = 0;
+      let warningCount = 0;
+
+      lines.forEach((line, index) => {
+        const div = document.createElement('div');
+        div.classList.add('line');
+        div.dataset.lineNumber = index + 1;
+
+        if (/Error:/i.test(line)) {
+          div.classList.add('error');
+          errorCount++;
+        } else if (/Warning:/i.test(line)) {
+          div.classList.add('warning');
+          warningCount++;
+        } else if (/Display:/i.test(line)) div.classList.add('display');
+        else if (/VeryVerbose:/i.test(line)) div.classList.add('veryverbose');
+        else if (/Verbose:/i.test(line)) div.classList.add('verbose');
+        else div.classList.add('log');
+
+        div.textContent = line;
+        output.appendChild(div);
+      });
+
+      document.getElementById('error-count').textContent = 'Errors: ' + errorCount;
+      document.getElementById('warning-count').textContent = 'Warnings: ' + warningCount;
+      applyFilter();
+    }
+
+    function zoomIn() {
+      const logOutput = document.getElementById('log-output');
+      let currentSize = parseFloat(window.getComputedStyle(logOutput, null).getPropertyValue('font-size'));
+      logOutput.style.fontSize = (currentSize + 2) + 'px';
+    }
+
+    function zoomOut() {
+      const logOutput = document.getElementById('log-output');
+      let currentSize = parseFloat(window.getComputedStyle(logOutput, null).getPropertyValue('font-size'));
+      logOutput.style.fontSize = (currentSize - 2) + 'px';
+    }
+
+    function setZoom() {
+      const logOutput = document.getElementById('log-output');
+      const zoomPercentage = document.getElementById('zoom-percentage').value;
+      logOutput.style.fontSize = (zoomPercentage / 100) + 'em';
+    }
+  </script>
+
+
+
+</body></html>
